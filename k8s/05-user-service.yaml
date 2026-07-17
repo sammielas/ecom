@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: user-service
-          image: ghcr.io/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/user-service:latest
+          image: ghcr.io/sammielas/ecom/user-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
