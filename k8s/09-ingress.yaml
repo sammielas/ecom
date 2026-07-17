@@ -1,0 +1,25 @@
+# Because the frontend's own nginx already proxies /api/user-service,
+# /api/product-service, and /api/order-service to the right backend Service,
+# the Ingress itself stays simple: everything goes to one Service.
+#
+# No "host" is set below, so this matches any hostname - meaning you can
+# just hit http://localhost:<mapped-port>/ without editing your hosts file.
+# (Add a host rule later if you want a nicer URL like ecom.localhost.)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecom-ingress
+  namespace: ecom
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

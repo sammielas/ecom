@@ -1,0 +1,183 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+
+  # ─────────────────────────────────────────────────────────
+  # 1. UNIT / INTEGRATION TESTS
+  # Each service gets a real Postgres to test against, same as
+  # it would connect to in production - not mocked at the DB layer.
+  # ─────────────────────────────────────────────────────────
+  test:
+    name: Test (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [user-service, product-service, order-service]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ecommerce_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.service }}
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        working-directory: ${{ matrix.service }}
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ecommerce_test
+          REDIS_URL: redis://localhost:6379/0
+          USER_SERVICE_URL: http://localhost:8001
+          PRODUCT_SERVICE_URL: http://localhost:8002
+        run: pytest tests/ -v
+
+  # ─────────────────────────────────────────────────────────
+  # 2. SAST - Static Application Security Testing
+  # SonarCloud analyzes source code for bugs, code smells, and
+  # security vulnerabilities (e.g. SQL injection patterns, hardcoded
+  # secrets) before anything is even built.
+  # ─────────────────────────────────────────────────────────
+  sast:
+    name: SAST - SonarCloud
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # SonarCloud needs full git history for accurate analysis
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # ─────────────────────────────────────────────────────────
+  # 3. SCA - Software Composition Analysis
+  # Trivy scans your dependency files (requirements.txt) for
+  # known vulnerabilities (CVEs) in third-party packages - the
+  # kind of thing "npm audit" or "pip-audit" also catches.
+  # ─────────────────────────────────────────────────────────
+  sca:
+    name: SCA - Trivy Filesystem Scan
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: 1          # fail the build if HIGH/CRITICAL CVEs are found
+          format: table
+
+  # ─────────────────────────────────────────────────────────
+  # 4. BUILD + CONTAINER SCAN + PUSH
+  # Build each image, scan it with Trivy (catches vulnerable OS
+  # packages baked into the image, not just app dependencies),
+  # and only push to GHCR if the scan passes.
+  # ─────────────────────────────────────────────────────────
+  build-scan-push:
+    name: Build & Scan (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    needs: [sast, sca]
+    if: github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        service: [user-service, product-service, order-service, frontend]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image (no attestations - keeps it k3d-import friendly)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.service }}
+          push: false
+          load: true
+          provenance: false
+          sbom: false
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.sha }}
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: 1
+          format: table
+
+      - name: Push image (only reached if scan passed)
+        run: docker push ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.sha }}
+
+  # ─────────────────────────────────────────────────────────
+  # 5. UPDATE MANIFESTS (GitOps trigger)
+  # This is the ONLY step that touches your deployment config,
+  # and even then it only edits files in git - it never talks to
+  # Kubernetes directly. Argo CD is what notices this commit and
+  # actually applies it to the cluster.
+  # ─────────────────────────────────────────────────────────
+  update-manifests:
+    name: Update K8s manifests
+    runs-on: ubuntu-latest
+    needs: build-scan-push
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update image tags in manifests
+        run: |
+          SHA=${{ github.sha }}
+          sed -i "s#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/user-service:.*#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/user-service:${SHA}#" k8s/05-user-service.yaml
+          sed -i "s#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/product-service:.*#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/product-service:${SHA}#" k8s/06-product-service.yaml
+          sed -i "s#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/order-service:.*#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/order-service:${SHA}#" k8s/07-order-service.yaml
+          sed -i "s#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:.*#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:${SHA}#" k8s/08-frontend.yaml
+
+      - name: Commit and push manifest changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/05-user-service.yaml k8s/06-product-service.yaml k8s/07-order-service.yaml k8s/08-frontend.yaml
+          git diff --staged --quiet || git commit -m "ci: update image tags to ${{ github.sha }}"
+          git push

@@ -1,0 +1,30 @@
+# This is the core of GitOps: instead of you running `kubectl apply`,
+# Argo CD continuously watches this repo's k8s/ folder and reconciles
+# your cluster to match whatever is committed there. The CI pipeline's
+# only job is to update image tags in that folder - Argo CD does the
+# actual deploying.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ecom-app
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME.git
+    targetRevision: main
+    path: k8s
+    directory:
+      exclude: "argocd/*"   # don't let Argo CD try to manage its own Application definition
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecom
+
+  syncPolicy:
+    automated:
+      prune: true       # remove resources that were deleted from git
+      selfHeal: true    # revert any manual kubectl changes back to match git
+    syncOptions:
+      - CreateNamespace=true

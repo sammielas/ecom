@@ -1,0 +1,33 @@
+# Runs every 5 minutes for demo purposes (real "nightly" cron would use
+# something like "0 2 * * *" for 2am daily). Hits order-service internally
+# and logs a simple summary - a stand-in for a real reporting pipeline.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sales-report
+  namespace: ecom
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid        # don't start a new run if the last one is still going
+  successfulJobsHistoryLimit: 3    # keep the last 3 successful Job records for inspection
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 60    # kill it if it hangs past 60s
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: sales-report
+              image: curlimages/curl:8.8.0
+              command:
+                - sh
+                - -c
+                - |
+                  echo "=== Sales Report: $(date -u) ==="
+                  echo "Fetching orders from order-service..."
+                  curl -sf http://order-service:8000/orders | tee /tmp/orders.json
+                  echo ""
+                  echo "Order count: $(curl -sf http://order-service:8000/orders | grep -o '"id"' | wc -l)"
+                  echo "=== Report complete ==="

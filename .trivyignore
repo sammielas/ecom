@@ -1,0 +1,11 @@
+# .trivyignore
+#
+# List CVE IDs here ONLY when you've deliberately assessed the risk and
+# decided to accept it (e.g. a vulnerability in a code path you don't use,
+# or one with no available fix yet and low real-world exploitability).
+#
+# Never add entries here just to make a scan pass - that defeats the point
+# of scanning in the first place. Each entry should have a comment explaining
+# why it's accepted and by whom, e.g.:
+#
+# CVE-2023-XXXXX  # Accepted 2026-07-16 by <name> - unused code path, no fix available yet

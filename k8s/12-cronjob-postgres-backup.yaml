@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backup-pvc
+  namespace: ecom
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+# Runs every 10 minutes for demo purposes (a real backup job would typically
+# run daily, e.g. "0 3 * * *"). Dumps the database to a timestamped file on
+# a dedicated PVC, separate from Postgres's own data volume - so losing the
+# main postgres-data PVC doesn't also destroy your backups.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: ecom
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 120
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: postgres-backup
+              image: postgres:16-alpine
+              env:
+                - name: PGHOST
+                  value: postgres
+                - name: PGUSER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_USER
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_PASSWORD
+                - name: PGDATABASE
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_DB
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  TIMESTAMP=$(date -u +%Y%m%d-%H%M%S)
+                  FILENAME="/backup/ecommerce-${TIMESTAMP}.sql"
+                  echo "Starting backup to ${FILENAME}..."
+                  pg_dump > "${FILENAME}"
+                  echo "Backup complete: $(ls -lh ${FILENAME})"
+                  echo "Retaining only the 5 most recent backups..."
+                  cd /backup && ls -t ecommerce-*.sql | tail -n +6 | xargs -r rm -v
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backup
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: postgres-backup-pvc

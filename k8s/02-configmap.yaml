@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecom-config
+  namespace: ecom
+data:
+  # Internal DNS names Kubernetes creates automatically for each Service:
+  # <service-name>.<namespace>.svc.cluster.local (short form: <service-name> works too within the same namespace)
+  REDIS_URL: "redis://redis:6379/0"
+  USER_SERVICE_URL: "http://user-service:8000"
+  PRODUCT_SERVICE_URL: "http://product-service:8000"
+  ORDER_SERVICE_URL: "http://order-service:8000"

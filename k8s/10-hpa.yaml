@@ -1,0 +1,25 @@
+# Autoscales product-service based on CPU usage. metrics-server is required
+# for this to work - it's already installed by default in k3s/k3d, so no
+# extra setup needed (confirmed running in kube-system).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: product-service-hpa
+  namespace: ecom
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: product-service
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50   # scale up once average CPU across pods exceeds 50% of the requested 50m
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60   # wait 60s of low usage before scaling back down, to avoid flapping
