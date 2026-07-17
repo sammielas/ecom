@@ -9,3 +9,31 @@
 # why it's accepted and by whom, e.g.:
 #
 # CVE-2023-XXXXX  # Accepted 2026-07-16 by <name> - unused code path, no fix available yet
+
+# --- Debian base image (python:3.12-slim) CVEs with no upstream fix yet ---
+# Confirmed via Trivy scan on 2026-07-17: these all show a blank "Fixed
+# Version", meaning no patched package version exists yet in Debian's
+# repositories. Re-run `apt-get upgrade` (already in the Dockerfile) will
+# pick these up automatically once Debian ships a fix - until then,
+# `apt-get upgrade` cannot resolve them no matter how often the image is
+# rebuilt. None of these packages (util-linux/blkid tooling, gzip, ncurses,
+# acl) are directly invoked by the application - they are base-OS utilities
+# pulled in transitively, not part of the app's own attack surface.
+CVE-2026-53615  # Accepted 2026-07-17 - libblkid/util-linux, no fix available, not used by the app directly
+CVE-2026-41992  # Accepted 2026-07-17 - gzip, no fix available, not used by the app directly
+CVE-2026-54369  # Accepted 2026-07-17 - libacl1, no fix available, not used by the app directly
+CVE-2025-69720   # Accepted 2026-07-17 - ncurses, no fix available, not used by the app directly
+
+# --- perl-base CVEs ---
+# perl-base is a transitive dependency of the Debian base image; this
+# application never invokes perl. CVE-2026-13221 is rated CRITICAL upstream,
+# which is why it's called out separately here rather than bundled above -
+# it's accepted specifically because perl is not on this app's attack
+# surface, not because the severity is being dismissed.
+CVE-2026-13221  # Accepted 2026-07-17 - perl-base, CRITICAL upstream but perl is never invoked by this app
+CVE-2026-42496   # Accepted 2026-07-17 - perl-Archive-Tar, same reasoning as above
+CVE-2026-8376    # Accepted 2026-07-17 - perl, same reasoning as above
+CVE-2026-42497   # Accepted 2026-07-17 - perl-Archive-Tar, same reasoning as above
+CVE-2026-48962   # Accepted 2026-07-17 - perl-IO-Compress, same reasoning as above
+CVE-2026-57432   # Accepted 2026-07-17 - perl, same reasoning as above
+CVE-2026-9538    # Accepted 2026-07-17 - perl-Archive-Tar, same reasoning as above
