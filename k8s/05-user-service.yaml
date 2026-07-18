@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: user-service
-          image: ghcr.io/sammielas/ecom/user-service:9164baf3bc3256a11b01fc56dffe1d91191c49e7
+          image: ghcr.io/sammielas/ecom/user-service:e1401957149ab33b32d00e58188b6eb228af19b2
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
