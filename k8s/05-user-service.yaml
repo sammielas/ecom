@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: user-service
-          image: ghcr.io/sammielas/ecom/user-service:e1401957149ab33b32d00e58188b6eb228af19b2
+          image: ghcr.io/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/user-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
@@ -25,6 +25,18 @@ spec:
                 secretKeyRef:
                   name: postgres-secret
                   key: DATABASE_URL
+            - name: OTEL_SERVICE_NAME
+              value: "user-service"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4318"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "http/protobuf"
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp"
+            - name: OTEL_METRICS_EXPORTER
+              value: "otlp"  # routed via the OTel Collector, which Prometheus then scrapes at :8889
+            - name: OTEL_LOGS_EXPORTER
+              value: "otlp"  # routed via the OTel Collector, which forwards to Loki's push API
           readinessProbe:
             httpGet:
               path: /health
