@@ -1,0 +1,26 @@
+# Tempo (distributed tracing) - the "T" in LGTM, via the grafana/tempo
+# chart. Tempo stores traces; it doesn't generate them - your
+# applications need to actually emit trace data (via OpenTelemetry) for
+# there to be anything here to visualize. This is intentionally a
+# separate, later step: instrumenting user-service/product-service/
+# order-service to emit traces, then confirming a real request's trace
+# (e.g. an order placement, which calls two other services) shows up
+# here as a multi-span trace across service boundaries.
+#
+# NOTE: Helm chart value schemas change between versions - confirm
+# against `helm show values grafana/tempo` before applying.
+
+tempo:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  persistence:
+    enabled: true
+    size: 10Gi
+
+# Tempo accepts traces over OTLP (OpenTelemetry Protocol) by default,
+# which is what we'll point the FastAPI services at once instrumented.

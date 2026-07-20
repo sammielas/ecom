@@ -1,0 +1,55 @@
+# Loki, single-binary mode, filesystem storage - the simplest working
+# topology for a homelab. The current grafana/loki chart (loki 3.x)
+# requires an explicit storage type + schemaConfig even for filesystem
+# mode; it no longer defaults this silently the way older chart
+# versions did.
+
+deploymentMode: SingleBinary
+
+loki:
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+  schemaConfig:
+    configs:
+      - from: "2024-04-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+  auth_enabled: false
+
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  persistence:
+    enabled: true
+    size: 10Gi
+
+gateway:
+  enabled: true
+
+# Disable extra caching tiers - unnecessary complexity/resource use for
+# a single-binary homelab deployment
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+# Disable the other deployment-mode component groups this chart can
+# also template (read/write/backend split) - not used in SingleBinary mode
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0

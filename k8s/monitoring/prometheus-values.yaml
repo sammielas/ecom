@@ -1,0 +1,100 @@
+# Full kube-prometheus-stack values for iximiuz Labs' k8s-omni playground -
+# a real multi-node cluster provisioned with kubeadm (1 control-plane +
+# 2 worker nodes). Because this is kubeadm (not k3s), the control-plane
+# components run as standard, directly-scrapable static pods - so unlike
+# a k3s cluster, we can enable full kube-controller-manager/scheduler/etcd
+# scraping below for genuine end-to-end cluster observability.
+#
+# Note: this is an ephemeral playground session - treat this as a
+# demonstration environment, not somewhere to leave long-running state.
+
+# ── Prometheus ──────────────────────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+    walCompression: true
+    podAntiAffinity: soft
+
+# ── Grafana ─────────────────────────────────────────────────────────
+grafana:
+  persistence:
+    enabled: true
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  adminPassword: admin   # change this before exposing Grafana beyond localhost/port-forward
+
+# ── Alertmanager ────────────────────────────────────────────────────
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+
+# ── kube-state-metrics ──────────────────────────────────────────────
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# ── node-exporter (one per node - 3 total on your cluster) ──────────
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+# ── Control plane scraping: ENABLED (kubeadm cluster, not k3s) ──────
+# k8s-omni is provisioned with kubeadm, which runs kube-controller-manager,
+# kube-scheduler, and etcd as standard static pods with directly-scrapable
+# metrics endpoints - unlike k3s, which bundles them inside one binary on
+# different ports. This is a genuine chance to see full control-plane
+# metrics, which is exactly the kind of visibility CKA/CKS-style clusters
+# are meant to demonstrate.
+kubeControllerManager:
+  enabled: true
+kubeScheduler:
+  enabled: true
+kubeEtcd:
+  enabled: true
+kubeProxy:
+  enabled: true
+kubeApiServer:
+  enabled: true
