@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: order-service
-          image: ghcr.io/sammielas/ecom/order-service:138f1422ae80a4a17ab38babbb3640ba9dfbcf40
+          image: ghcr.io/sammielas/ecom/order-service:59410fec84e815b7bc781b34dba52134433017d8
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
