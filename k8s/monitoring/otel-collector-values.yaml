@@ -49,9 +49,11 @@ config:
     prometheus:
       endpoint: 0.0.0.0:8889
 
-    # Logs -> Loki, via Loki's native push API
-    loki:
-      endpoint: http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push
+    # Logs -> Loki, via Loki's native OTLP log ingestion endpoint (the
+    # standalone "loki" exporter was removed from recent collector-contrib
+    # versions in favor of this, since Loki 3.x+ accepts OTLP logs directly)
+    otlphttp/loki:
+      endpoint: http://loki-gateway.monitoring.svc.cluster.local:3100/otlp
 
   service:
     pipelines:
@@ -66,7 +68,7 @@ config:
       logs:
         receivers: [otlp]
         processors: [batch]
-        exporters: [loki]
+        exporters: [otlphttp/loki]
 
 # Expose the Prometheus-format metrics endpoint (8889) so a ServiceMonitor
 # can scrape it - see the ServiceMonitor manifest applied separately below.
