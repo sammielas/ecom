@@ -112,6 +112,9 @@ jobs:
     needs: [sast, sca]
     if: github.ref == 'refs/heads/main'
     strategy:
+      max-parallel: 2   # reduces concurrent pushes to GHCR - avoids a known,
+                        # transient "unknown blob" race condition when multiple
+                        # builds sharing base layers push simultaneously
       matrix:
         service: [user-service, product-service, order-service, frontend]
     permissions:
