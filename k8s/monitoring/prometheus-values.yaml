@@ -31,6 +31,14 @@ grafana:
       memory: 512Mi
   adminPassword: admin
   additionalDataSources:
+    # IMPORTANT: Grafana's datasource provisioning only fully applies
+    # jsonData (like tracesToLogsV2 below) when a datasource is created
+    # for the FIRST time. If you change jsonData here on a datasource that
+    # already exists in Grafana's database, `helm upgrade` alone will NOT
+    # update it - the old config silently persists. To force it to pick up
+    # changes, wipe Grafana's database and let it re-provision fresh:
+    #   kubectl exec -n monitoring deploy/prometheus-grafana -c grafana -- rm -f /var/lib/grafana/grafana.db
+    #   kubectl delete pod -n monitoring -l app.kubernetes.io/name=grafana
     - name: Loki
       type: loki
       uid: loki
