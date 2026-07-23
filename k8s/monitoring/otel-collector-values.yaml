@@ -1,11 +1,10 @@
-# OpenTelemetry Collector - the single ingestion point for all app-emitted
-# telemetry (traces, metrics, logs), fanning out to the three separate
-# LGTM backends. Apps only ever need to know one endpoint (this Collector)
-# and one protocol (OTLP) - swapping or adding a backend later means
-# changing this config, not redeploying every service.
-#
-# Uses the "contrib" distribution specifically because it includes the
-# Loki exporter, which isn't in the core distribution.
+# OpenTelemetry Collector - ingestion point for app-emitted traces and
+# metrics, fanning out to Tempo and Prometheus. Logs are NOT handled here -
+# Promtail (a separate DaemonSet) tails container stdout directly and
+# ships to Loki instead, which is simpler and captures every pod's logs,
+# not just ones with OTel instrumentation. Keeping the Collector scoped to
+# traces+metrics also reduces its resource footprint, which matters on
+# CPU-constrained clusters (as low as 1 vCPU on some lab environments).
 #
 # NOTE: verify against `helm show values open-telemetry/opentelemetry-collector`
 # for the chart version you're installing - config schema for the collector
@@ -18,13 +17,17 @@ image:
 
 resources:
   requests:
-    cpu: 100m
-    memory: 256Mi
+    cpu: 30m
+    memory: 128Mi
   limits:
-    cpu: 500m
-    memory: 512Mi
+    cpu: 150m
+    memory: 256Mi
 
 config:
+  extensions:
+    health_check:
+      endpoint: 0.0.0.0:13133
+
   receivers:
     otlp:
       protocols:
@@ -49,13 +52,8 @@ config:
     prometheus:
       endpoint: 0.0.0.0:8889
 
-    # Logs -> Loki, via Loki's native OTLP log ingestion endpoint (the
-    # standalone "loki" exporter was removed from recent collector-contrib
-    # versions in favor of this, since Loki 3.x+ accepts OTLP logs directly)
-    otlphttp/loki:
-      endpoint: http://loki-gateway.monitoring.svc.cluster.local:3100/otlp
-
   service:
+    extensions: [health_check]
     pipelines:
       traces:
         receivers: [otlp]
@@ -65,10 +63,6 @@ config:
         receivers: [otlp]
         processors: [batch]
         exporters: [prometheus]
-      logs:
-        receivers: [otlp]
-        processors: [batch]
-        exporters: [otlphttp/loki]
 
 # Expose the Prometheus-format metrics endpoint (8889) so a ServiceMonitor
 # can scrape it - see the ServiceMonitor manifest applied separately below.
