@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: ghcr.io/sammielas/ecom/frontend:bf03ae37e0d5fc5028f030a9ecae391dfe0618bc
+          image: ghcr.io/sammielas/ecom/frontend:37239236b4823ac151d095155d62e68beec40f37
           imagePullPolicy: Always
           ports:
             - containerPort: 80
