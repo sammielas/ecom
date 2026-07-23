@@ -37,3 +37,4 @@ CVE-2026-42497   # Accepted 2026-07-17 - perl-Archive-Tar, same reasoning as abo
 CVE-2026-48962   # Accepted 2026-07-17 - perl-IO-Compress, same reasoning as above
 CVE-2026-57432   # Accepted 2026-07-17 - perl, same reasoning as above
 CVE-2026-9538    # Accepted 2026-07-17 - perl-Archive-Tar, same reasoning as above
+CVE-2026-57433   # Accepted 2026-07-23 - perl-Storable, CRITICAL upstream but no fix available yet and perl is never invoked by this app (same reasoning as the other perl-base entries above)
