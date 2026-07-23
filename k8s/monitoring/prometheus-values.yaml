@@ -106,6 +106,31 @@ alertmanager:
         - matchers:
             - alertname =~ "KubeSchedulerDown|KubeProxyDown|KubeControllerManagerDown"
           receiver: 'null'
+        # CPUThrottlingHigh and the overcommit alerts fire constantly on
+        # this homelab specifically BECAUSE we deliberately set very tight
+        # CPU requests/limits everywhere (down to 5-30m in places) to fit
+        # the whole LGTM stack on constrained hardware. That's an expected,
+        # accepted trade-off here, not a real incident.
+        - matchers:
+            - alertname =~ "CPUThrottlingHigh|KubeCPUOvercommit|KubeMemoryOvercommit"
+          receiver: 'null'
+    # Inhibition rules: suppress a lower-priority alert when a related,
+    # higher-priority one is already firing for the same thing. Replacing
+    # the chart's default `config:` block entirely (to add Slack) also
+    # silently discarded kube-prometheus-stack's own built-in inhibition
+    # rules, so these are recreated explicitly here.
+    inhibit_rules:
+      - source_matchers:
+          - severity = "critical"
+        target_matchers:
+          - severity = "warning"
+        equal: ['alertname', 'exported_job']
+      - source_matchers:
+          - severity =~ "warning|critical"
+        target_matchers:
+          - severity = "info"
+        equal: ['alertname', 'namespace']
+
     receivers:
       - name: 'null'
       - name: 'slack-notifications'
