@@ -114,7 +114,7 @@ alertmanager:
             channel: '#alerts'
             send_resolved: true
             title: '{{ .GroupLabels.alertname }}'
-            text: >-
+            text: |
               {{ range .Alerts }}
               *Service:* {{ .Labels.exported_job }}
               *Severity:* {{ .Labels.severity }}
@@ -126,7 +126,7 @@ alertmanager:
             channel: '#alerts'
             send_resolved: true
             title: ':rotating_light: {{ .GroupLabels.alertname }}'
-            text: >-
+            text: |
               {{ range .Alerts }}
               *Service:* {{ .Labels.exported_job }}
               *Severity:* {{ .Labels.severity }}
