@@ -33,12 +33,32 @@ grafana:
   additionalDataSources:
     - name: Loki
       type: loki
+      uid: loki
       url: http://loki-gateway
       access: proxy
+      jsonData:
+        derivedFields:
+          - datasourceUid: tempo
+            matcherRegex: 'trace_id=(\w+)'
+            name: TraceID
+            url: '$${__value.raw}'
     - name: Tempo
       type: tempo
+      uid: tempo
       url: http://tempo:3200
       access: proxy
+      jsonData:
+        tracesToLogsV2:
+          datasourceUid: loki
+          spanStartTimeShift: '-5m'
+          spanEndTimeShift: '5m'
+          filterByTraceID: false
+          filterBySpanID: false
+          tags:
+            - key: 'service.name'
+              value: 'service_name'
+        serviceMap:
+          datasourceUid: prometheus
 
 alertmanager:
   alertmanagerSpec:
