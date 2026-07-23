@@ -103,6 +103,9 @@ alertmanager:
         - matchers:
             - alertname = "Watchdog"
           receiver: 'null'
+        - matchers:
+            - alertname =~ "KubeSchedulerDown|KubeProxyDown|KubeControllerManagerDown"
+          receiver: 'null'
     receivers:
       - name: 'null'
       - name: 'slack-notifications'
