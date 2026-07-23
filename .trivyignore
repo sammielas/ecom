@@ -3,11 +3,9 @@
 # List CVE IDs here ONLY when you've deliberately assessed the risk and
 # decided to accept it (e.g. a vulnerability in a code path you don't use,
 # or one with no available fix yet and low real-world exploitability).
-#
 # Never add entries here just to make a scan pass - that defeats the point
 # of scanning in the first place. Each entry should have a comment explaining
 # why it's accepted and by whom, e.g.:
-#
 # CVE-2023-XXXXX  # Accepted 2026-07-16 by <name> - unused code path, no fix available yet
 
 # --- Debian base image (python:3.12-slim) CVEs with no upstream fix yet ---
@@ -23,7 +21,6 @@ CVE-2026-53615  # Accepted 2026-07-17 - libblkid/util-linux, no fix available, n
 CVE-2026-41992  # Accepted 2026-07-17 - gzip, no fix available, not used by the app directly
 CVE-2026-54369  # Accepted 2026-07-17 - libacl1, no fix available, not used by the app directly
 CVE-2025-69720   # Accepted 2026-07-17 - ncurses, no fix available, not used by the app directly
-
 # --- perl-base CVEs ---
 # perl-base is a transitive dependency of the Debian base image; this
 # application never invokes perl. CVE-2026-13221 is rated CRITICAL upstream,
