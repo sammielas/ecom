@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: product-service
-          image: ghcr.io/sammielas/ecom/product-service:4505f07a27f533bfef21e829f7d6c6b0b9ec2b5f
+          image: ghcr.io/sammielas/ecom/product-service:3c7cf1aae0b9fcbb1e2aa1d2d63c768c47d46b07
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
