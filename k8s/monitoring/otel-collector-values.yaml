@@ -45,6 +45,7 @@ config:
       endpoint: tempo.monitoring.svc.cluster.local:4317
       tls:
         insecure: true
+      timeout: 30s
 
     # Metrics -> exposed here for Prometheus to scrape (pull model, matching
     # how Prometheus already scrapes everything else in this cluster - more
