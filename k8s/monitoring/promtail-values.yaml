@@ -1,0 +1,17 @@
+# Promtail - tails every container's stdout at the node level and ships
+# to Loki, labeled by namespace/pod/container automatically. This is the
+# standard, real-world approach to log collection - simpler and more
+# complete than relying on each application to emit logs via OTLP, since
+# it captures every pod's logs (including ones you didn't instrument)
+# with zero application-side configuration required.
+config:
+  clients:
+    - url: http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
