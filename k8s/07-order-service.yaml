@@ -37,6 +37,12 @@ spec:
                   key: PRODUCT_SERVICE_URL
             - name: OTEL_SERVICE_NAME
               value: "order-service"
+            - name: OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED
+              value: "true"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "service.name=order-service"
+
+
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://otel-collector-opentelemetry-collector.monitoring.svc.cluster.local:4318"
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
