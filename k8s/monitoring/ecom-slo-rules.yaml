@@ -1,0 +1,159 @@
+# SLO-based alerting for the e-commerce services, using the RED method
+# (Rate, Errors, Duration). Metrics come from OpenTelemetry's HTTP semantic
+# conventions (http_server_duration_milliseconds_*), exported via the OTel
+# Collector's Prometheus exporter. The service identity label is
+# `exported_job` (Prometheus renames OTel's own `job` label to avoid
+# colliding with the scrape target's own `job` label).
+#
+# SLOs:
+#   - Availability: 99.5% of requests succeed (non-5xx) over a rolling window
+#   - Latency: 95% of requests complete in under 300ms
+#
+# This uses multi-window, multi-burn-rate alerting (the industry-standard
+# SRE pattern from Google's SRE workbook) rather than a single static
+# threshold - it distinguishes "a brief blip" from "we're burning our error
+# budget fast enough that it matters," which is the actual point of SLO-based
+# alerting versus naive "alert on any 5xx" rules.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ecom-slo-rules
+  namespace: monitoring
+  labels:
+    release: prometheus   # must match the label the Prometheus Operator's
+                           # serviceMonitorSelector/ruleSelector expects -
+                           # verify with: kubectl get prometheus -n monitoring -o yaml | grep -A5 ruleSelector
+spec:
+  groups:
+    # ─────────────────────────────────────────────────────────────
+    # Recording rules - pre-compute the building blocks so alert
+    # queries are fast, readable, and reusable across dashboards.
+    # ─────────────────────────────────────────────────────────────
+    - name: ecom-red-metrics.rules
+      interval: 30s
+      rules:
+        # Total request rate per service (all statuses)
+        - record: ecom:http_requests:rate5m
+          expr: |
+            sum by (exported_job) (
+              rate(http_server_duration_milliseconds_count{exported_job=~"user-service|product-service|order-service"}[5m])
+            )
+
+        # Error rate per service (5xx responses only)
+        - record: ecom:http_requests_errors:rate5m
+          expr: |
+            sum by (exported_job) (
+              rate(http_server_duration_milliseconds_count{exported_job=~"user-service|product-service|order-service", http_status_code=~"5.."}[5m])
+            )
+
+        # Error ratio - the actual SLI (Service Level Indicator) for availability
+        - record: ecom:http_error_ratio:rate5m
+          expr: |
+            ecom:http_requests_errors:rate5m
+            /
+            ecom:http_requests:rate5m
+
+        # Same two ratios, over a longer window - needed for multi-window burn-rate alerting
+        - record: ecom:http_requests:rate1h
+          expr: |
+            sum by (exported_job) (
+              rate(http_server_duration_milliseconds_count{exported_job=~"user-service|product-service|order-service"}[1h])
+            )
+        - record: ecom:http_requests_errors:rate1h
+          expr: |
+            sum by (exported_job) (
+              rate(http_server_duration_milliseconds_count{exported_job=~"user-service|product-service|order-service", http_status_code=~"5.."}[1h])
+            )
+        - record: ecom:http_error_ratio:rate1h
+          expr: |
+            ecom:http_requests_errors:rate1h
+            /
+            ecom:http_requests:rate1h
+
+        # p95 latency per service, in milliseconds - the SLI for our latency SLO
+        - record: ecom:http_request_duration:p95_5m
+          expr: |
+            histogram_quantile(0.95,
+              sum by (exported_job, le) (
+                rate(http_server_duration_milliseconds_bucket{exported_job=~"user-service|product-service|order-service"}[5m])
+              )
+            )
+
+    # ─────────────────────────────────────────────────────────────
+    # Alerting rules
+    # ─────────────────────────────────────────────────────────────
+    - name: ecom-slo-alerts.rules
+      rules:
+        # --- Availability SLO: 99.5% success rate -> error budget = 0.5% ---
+        # Fast burn: if we're burning budget 14.4x faster than sustainable,
+        # we'll exhaust a 30-day budget in about 2 days - needs fast paging.
+        - alert: ErrorBudgetBurnFast
+          expr: |
+            (
+              ecom:http_error_ratio:rate5m > (14.4 * 0.005)
+              and
+              ecom:http_error_ratio:rate1h > (14.4 * 0.005)
+            )
+          for: 2m
+          labels:
+            severity: critical
+            slo: availability
+          annotations:
+            summary: "{{ $labels.exported_job }} is burning its error budget fast"
+            description: >
+              {{ $labels.exported_job }} has a {{ $value | humanizePercentage }}
+              error rate over both 5m and 1h windows - at this rate, the
+              monthly error budget (0.5%) will be exhausted in under 2 days.
+              This needs attention now, not at the next standup.
+
+        # Slow burn: a smaller, sustained error rate that would still exhaust
+        # the budget within the month if left unaddressed - worth knowing
+        # about, but not worth waking anyone up for.
+        - alert: ErrorBudgetBurnSlow
+          expr: |
+            (
+              ecom:http_error_ratio:rate1h > (3 * 0.005)
+            )
+          for: 15m
+          labels:
+            severity: warning
+            slo: availability
+          annotations:
+            summary: "{{ $labels.exported_job }} is slowly burning its error budget"
+            description: >
+              {{ $labels.exported_job }} has sustained a
+              {{ $value | humanizePercentage }} error rate over the last
+              hour - at this rate the monthly budget would be exhausted
+              early, but there's no immediate emergency. Worth investigating
+              this sprint.
+
+        # --- Latency SLO: 95% of requests under 300ms ---
+        - alert: LatencySLOBreach
+          expr: |
+            ecom:http_request_duration:p95_5m > 300
+          for: 5m
+          labels:
+            severity: warning
+            slo: latency
+          annotations:
+            summary: "{{ $labels.exported_job }} p95 latency exceeds SLO"
+            description: >
+              {{ $labels.exported_job }}'s p95 request duration is
+              {{ $value | humanizeDuration }}, above the 300ms target,
+              sustained for 5 minutes.
+
+        # --- A simple, complementary "is it actually up" check ---
+        - alert: ServiceHasZeroTraffic
+          expr: |
+            ecom:http_requests:rate5m == 0
+          for: 10m
+          labels:
+            severity: warning
+            slo: availability
+          annotations:
+            summary: "{{ $labels.exported_job }} has received zero requests in 10m"
+            description: >
+              This is unusual for a service that normally receives
+              continuous health-check traffic - worth confirming the
+              service, its Ingress routing, or the health check itself
+              hasn't silently broken.
