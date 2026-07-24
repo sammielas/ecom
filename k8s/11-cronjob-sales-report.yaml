@@ -16,6 +16,9 @@ spec:
       backoffLimit: 2
       activeDeadlineSeconds: 60    # kill it if it hangs past 60s
       template:
+        metadata:
+          labels:
+            app: sales-report
         spec:
           restartPolicy: Never
           containers:
