@@ -52,7 +52,12 @@ def wait_for_db(engine, retries=10, delay=3):
     raise RuntimeError("Could not connect to database after retries")
 
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,  # verifies a pooled connection is alive before use - prevents
+                         # "server closed the connection unexpectedly" errors after a
+                         # Postgres restart (see incident report: Task 25)
+)
 wait_for_db(engine)
 Base.metadata.create_all(bind=engine)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
