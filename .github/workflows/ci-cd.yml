@@ -159,7 +159,7 @@ jobs:
   # actually applies it to the cluster.
   # ─────────────────────────────────────────────────────────
   update-manifests:
-    name: Update K8s manifests
+    name: Update K8s manifests (staging)
     runs-on: ubuntu-latest
     needs: build-scan-push
     permissions:
@@ -169,18 +169,41 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update image tags in manifests
+      - name: Update image tags in the STAGING overlay only
         run: |
           SHA=${{ github.sha }}
-          sed -i "s#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/user-service:.*#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/user-service:${SHA}#" k8s/05-user-service.yaml
-          sed -i "s#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/product-service:.*#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/product-service:${SHA}#" k8s/06-product-service.yaml
-          sed -i "s#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/order-service:.*#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/order-service:${SHA}#" k8s/07-order-service.yaml
-          sed -i "s#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:.*#image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend:${SHA}#" k8s/08-frontend.yaml
+          sed -i "s#newTag: .*#newTag: ${SHA}#" k8s/overlays/staging/kustomization.yaml
 
       - name: Commit and push manifest changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add k8s/05-user-service.yaml k8s/06-product-service.yaml k8s/07-order-service.yaml k8s/08-frontend.yaml
-          git diff --staged --quiet || git commit -m "ci: update image tags to ${{ github.sha }}"
+          git add k8s/overlays/staging/kustomization.yaml
+          git diff --staged --quiet || git commit -m "ci: update staging image tags to ${{ github.sha }}"
+          git push
+
+  promote-to-production:
+    name: Promote to production (manual approval required)
+    runs-on: ubuntu-latest
+    needs: update-manifests
+    environment: production
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote the EXACT tags already tested in staging - never rebuild
+        run: |
+          STAGING_TAG=$(grep -m1 "newTag:" k8s/overlays/staging/kustomization.yaml | awk '{print $2}')
+          sed -i "s#newTag: .*#newTag: ${STAGING_TAG}#" k8s/overlays/production/kustomization.yaml
+          echo "Promoted tag: ${STAGING_TAG}"
+
+      - name: Commit and push production manifest changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/overlays/production/kustomization.yaml
+          git diff --staged --quiet || git commit -m "ci: promote to production - image tag ${{ github.sha }}"
           git push
