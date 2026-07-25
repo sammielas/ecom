@@ -168,6 +168,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main   # IMPORTANT: without this, checkout defaults to github.sha
+                      # (the commit that originally triggered the run) rather
+                      # than the current tip of main - a real problem for any
+                      # job that can run long after other commits have landed,
+                      # like this one, which waits on manual approval.
 
       - name: Update image tags in the STAGING overlay only
         run: |
@@ -194,6 +199,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main   # IMPORTANT: without this, checkout defaults to github.sha
+                      # (the commit that originally triggered the run) rather
+                      # than the current tip of main - a real problem for any
+                      # job that can run long after other commits have landed,
+                      # like this one, which waits on manual approval.
 
       - name: Promote the EXACT tags already tested in staging - never rebuild
         run: |
