@@ -1,0 +1,14 @@
+resources:
+  - 00-namespace.yaml
+  - 01-postgres-secret.yaml
+  - 02-configmap.yaml
+  - 03-postgres-statefulset.yaml
+  - 04-redis.yaml
+  - 05-user-service.yaml
+  - 06-product-service.yaml
+  - 07-order-service.yaml
+  - 08-frontend.yaml
+  - 09-ingress.yaml
+  - 10-hpa.yaml
+  - 11-cronjob-sales-report.yaml
+  - 12-cronjob-postgres-backup.yaml
