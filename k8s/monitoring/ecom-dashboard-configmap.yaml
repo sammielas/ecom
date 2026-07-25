@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecom-red-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  ecom-red-dashboard.json: |
+    {
+      "title": "E-Commerce RED Metrics",
+      "uid": "ecom-red-metrics",
+      "tags": ["ecom", "red-method"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "refresh": "30s",
+      "time": { "from": "now-1h", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Request Rate by Service",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "ecom:http_requests:rate5m", "legendFormat": "{{exported_job}}", "refId": "A" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "reqps" } }
+        },
+        {
+          "id": 2,
+          "title": "Error Ratio by Service",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "ecom:http_error_ratio:rate5m", "legendFormat": "{{exported_job}}", "refId": "A" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 0.015 },
+                  { "color": "red", "value": 0.072 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "p95 Latency by Service (300ms SLO line)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "ecom:http_request_duration:p95_5m", "legendFormat": "{{exported_job}}", "refId": "A" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "custom": { "thresholdsStyle": { "mode": "line" } },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 300 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "title": "product-service HPA: Current vs Desired Replicas",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "kube_horizontalpodautoscaler_status_current_replicas{namespace=\"ecom\"}", "legendFormat": "current", "refId": "A" },
+            { "expr": "kube_horizontalpodautoscaler_status_desired_replicas{namespace=\"ecom\"}", "legendFormat": "desired", "refId": "B" }
+          ]
+        },
+        {
+          "id": 5,
+          "title": "Pod Restarts (ecom namespace)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "sum by (pod) (increase(kube_pod_container_status_restarts_total{namespace=\"ecom\"}[1h]))", "legendFormat": "{{pod}}", "refId": "A" }
+          ]
+        },
+        {
+          "id": 6,
+          "title": "CPU Usage per Pod (ecom namespace)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"ecom\"}[5m]))", "legendFormat": "{{pod}}", "refId": "A" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short" } }
+        }
+      ]
+    }
