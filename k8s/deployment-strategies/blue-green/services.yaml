@@ -34,3 +34,26 @@ spec:
   ports:
     - port: 8000
       targetPort: 8000
+---
+# ExternalName Services - lightweight DNS aliases pointing at the real,
+# working user-service and product-service in the ecom namespace. This
+# practice lab only has its own order-service (blue/green) - without
+# these, nginx crashes at startup because it can't resolve the other
+# two upstream hostnames its config expects.
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: deploy-strategies-lab
+spec:
+  type: ExternalName
+  externalName: user-service.ecom.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  namespace: deploy-strategies-lab
+spec:
+  type: ExternalName
+  externalName: product-service.ecom.svc.cluster.local
