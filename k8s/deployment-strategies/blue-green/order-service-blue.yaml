@@ -20,10 +20,12 @@ spec:
     spec:
       containers:
         - name: order-service
-          image: ghcr.io/sammielas/ecom/order-service:latest
+          image: ghcr.io/sammielas/ecom/order-service:ce4fb93620d40380fdc5602a4a3ae8dab3917966
           ports:
             - containerPort: 8000
           env:
+            - name: DATABASE_URL
+              value: "postgresql://postgres:postgres@postgres.ecom.svc.cluster.local:5432/ecommerce"
             - name: VERSION_LABEL
               value: "blue"
           livenessProbe:
