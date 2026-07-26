@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: order-service
-          image: ghcr.io/sammielas/ecom/order-service:ce4fb93620d40380fdc5602a4a3ae8dab3917966
+          image: order-service:cart-feature
           ports:
             - containerPort: 8000
           env:
