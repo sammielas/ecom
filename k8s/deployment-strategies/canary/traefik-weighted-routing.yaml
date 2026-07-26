@@ -1,0 +1,39 @@
+# TraefikService is a Traefik-specific CRD (bundled automatically with
+# k3s's default Traefik install - no extra install needed) that lets you
+# combine multiple real Kubernetes Services into one logical backend,
+# splitting traffic between them by weight. This is what actually makes
+# canary deployments possible on plain Kubernetes without needing a full
+# service mesh (Istio/Linkerd) - Traefik does the traffic-splitting
+# itself, right at the ingress layer.
+apiVersion: traefik.io/v1alpha1
+kind: TraefikService
+metadata:
+  name: product-service-weighted
+  namespace: deploy-strategies-lab
+spec:
+  weighted:
+    services:
+      - name: product-service-stable-svc
+        port: 8000
+        weight: 90   # <-- these two weights are what set-canary-weight.sh changes
+      - name: product-service-canary-svc
+        port: 8000
+        weight: 10
+---
+# The actual route real requests travel through - points at the
+# TraefikService above (NOT directly at either Service), so the
+# weighting is applied to every request.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: product-service-canary-route
+  namespace: deploy-strategies-lab
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: PathPrefix(`/api/product-service`)
+      kind: Rule
+      services:
+        - name: product-service-weighted
+          kind: TraefikService

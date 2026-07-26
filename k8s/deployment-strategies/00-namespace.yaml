@@ -1,0 +1,8 @@
+# Isolated practice namespace - deliberately separate from the real
+# `ecom` namespace and its GitOps-managed promotion pipeline, so
+# experimenting with these deployment strategies carries zero risk to
+# anything already working.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: deploy-strategies-lab

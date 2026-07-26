@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service-stable
+  namespace: deploy-strategies-lab
+  labels:
+    app: product-service
+    track: stable
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: product-service
+      track: stable
+  template:
+    metadata:
+      labels:
+        app: product-service
+        track: stable
+    spec:
+      containers:
+        - name: product-service
+          image: ghcr.io/sammielas/ecom/product-service:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: VERSION_LABEL
+              value: "stable"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+---
+# Canary starts small and fixed-size deliberately - it's meant to
+# receive a MINORITY of traffic (controlled by the weighted routing
+# below, not by replica count), so it doesn't need its own HPA. If the
+# canary is unhealthy, only a small, controlled slice of real traffic
+# is ever exposed to it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service-canary
+  namespace: deploy-strategies-lab
+  labels:
+    app: product-service
+    track: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product-service
+      track: canary
+  template:
+    metadata:
+      labels:
+        app: product-service
+        track: canary
+    spec:
+      containers:
+        - name: product-service
+          image: ghcr.io/sammielas/ecom/product-service:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: VERSION_LABEL
+              value: "canary"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5

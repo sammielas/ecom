@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service-blue
+  namespace: deploy-strategies-lab
+  labels:
+    app: order-service
+    slot: blue
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order-service
+      slot: blue
+  template:
+    metadata:
+      labels:
+        app: order-service
+        slot: blue
+    spec:
+      containers:
+        - name: order-service
+          image: ghcr.io/sammielas/ecom/order-service:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: VERSION_LABEL
+              value: "blue"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5

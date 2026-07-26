@@ -1,0 +1,36 @@
+# This is the ONE Service real traffic hits. Cutting over from blue to
+# green (or back) is just changing which `slot` label this selector
+# matches - see switch-blue-green.sh. The cutover is instant (a Service
+# selector change takes effect immediately, no rolling update involved),
+# which is the whole point of blue-green: zero-downtime switching between
+# two fully-deployed, already-running versions, rather than a gradual
+# rollout.
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: deploy-strategies-lab
+spec:
+  selector:
+    app: order-service
+    slot: blue   # <-- this is the line switch-blue-green.sh changes
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+# A second Service, always pointing at whichever slot is CURRENTLY
+# inactive - lets you test the new version directly before cutting real
+# traffic over to it. In a real environment you'd hit this via its own
+# internal DNS name from a test pod, or expose it temporarily.
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service-preview
+  namespace: deploy-strategies-lab
+spec:
+  selector:
+    app: order-service
+    slot: green   # <-- keep this the OPPOSITE of the active Service above
+  ports:
+    - port: 8000
+      targetPort: 8000
