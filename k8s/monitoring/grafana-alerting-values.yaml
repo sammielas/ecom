@@ -1,0 +1,70 @@
+grafana:
+  alerting:
+    contactpoints.yaml:
+      apiVersion: 1
+      contactPoints:
+        - orgId: 1
+          name: slack-grafana-native
+          receivers:
+            - uid: slack-grafana-native-receiver
+              type: slack
+              settings:
+                url: "$__file{/etc/secrets/slack-webhook/webhook-url}"
+              disableResolveMessage: false
+
+    policies.yaml:
+      apiVersion: 1
+      policies:
+        - orgId: 1
+          receiver: slack-grafana-native
+          group_by: ['alertname']
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 4h
+
+    rules.yaml:
+      apiVersion: 1
+      groups:
+        - orgId: 1
+          name: ecom-grafana-native-alerts
+          folder: Ecom
+          interval: 1m
+          rules:
+            - uid: ecom-high-error-ratio
+              title: "High Error Ratio (Grafana-native)"
+              condition: C
+              for: 5m
+              labels:
+                severity: warning
+                source: grafana-native
+              annotations:
+                summary: '{{ "{{ $labels.exported_job }}" }} error ratio is above 5%'
+              data:
+                - refId: A
+                  relativeTimeRange:
+                    from: 300
+                    to: 0
+                  datasourceUid: prometheus
+                  model:
+                    expr: "ecom:http_error_ratio:rate5m"
+                    refId: A
+                - refId: C
+                  relativeTimeRange:
+                    from: 300
+                    to: 0
+                  datasourceUid: "__expr__"
+                  model:
+                    type: threshold
+                    refId: C
+                    expression: A
+                    conditions:
+                      - evaluator:
+                          type: gt
+                          params: [0.05]
+
+  extraSecretMounts:
+    - name: slack-webhook-grafana
+      secretName: slack-webhook
+      defaultMode: 0440
+      mountPath: /etc/secrets/slack-webhook
+      readOnly: true
