@@ -17,5 +17,14 @@ spec:
         - podSelector:
             matchLabels:
               app: order-service
+        # Deliberate, narrow exception for the deployment-strategies
+        # practice lab (a different namespace) - see 02-allow-user-service.yaml
+        # for the full explanation of this pattern.
+        - podSelector:
+            matchLabels:
+              app: frontend
+          namespaceSelector:
+            matchLabels:
+              purpose: deployment-strategies-practice
       ports:
         - port: 8000

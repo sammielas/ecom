@@ -17,5 +17,17 @@ spec:
         - podSelector:
             matchLabels:
               app: order-service
+        # Deliberate, narrow exception for the deployment-strategies
+        # practice lab (a different namespace) - combining podSelector +
+        # namespaceSelector in one entry means BOTH must match: app=frontend
+        # AND running in the namespace labeled purpose=deployment-strategies-practice.
+        # This is not a broad opening - only that specific label combination
+        # from that specific, deliberately-labeled namespace is allowed.
+        - podSelector:
+            matchLabels:
+              app: frontend
+          namespaceSelector:
+            matchLabels:
+              purpose: deployment-strategies-practice
       ports:
         - port: 8000
