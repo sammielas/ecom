@@ -47,6 +47,30 @@ class OrderOut(BaseModel):
         from_attributes = True
 
 
+class CartItem(Base):
+    __tablename__ = "cart_items"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    product_id = Column(Integer, nullable=False)
+    quantity = Column(Integer, nullable=False)
+    added_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CartItemCreate(BaseModel):
+    product_id: int
+    quantity: int
+
+
+class CartItemOut(BaseModel):
+    id: int
+    user_id: int
+    product_id: int
+    quantity: int
+
+    class Config:
+        from_attributes = True
+
+
 def wait_for_db(engine, retries=10, delay=3):
     for attempt in range(retries):
         try:
@@ -86,10 +110,18 @@ def health():
 
 @app.post("/orders", response_model=OrderOut, status_code=201)
 def create_order(order: OrderCreate):
-    # Validate user exists
+    db = SessionLocal()
+    try:
+        return _place_order(db, order.user_id, order.product_id, order.quantity)
+    finally:
+        db.close()
+
+
+def _place_order(db, user_id: int, product_id: int, quantity: int) -> Order:
+    """Shared order-creation logic, used by both POST /orders and cart checkout."""
     try:
         user_resp = httpx.get(
-            f"{USER_SERVICE_URL}/users/{order.user_id}", timeout=HTTP_TIMEOUT_SECONDS
+            f"{USER_SERVICE_URL}/users/{user_id}", timeout=HTTP_TIMEOUT_SECONDS
         )
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"user-service unreachable: {e}")
@@ -99,10 +131,9 @@ def create_order(order: OrderCreate):
     if user_resp.status_code != 200:
         raise HTTPException(status_code=502, detail="user-service returned an error")
 
-    # Validate product exists and get price
     try:
         product_resp = httpx.get(
-            f"{PRODUCT_SERVICE_URL}/products/{order.product_id}", timeout=HTTP_TIMEOUT_SECONDS
+            f"{PRODUCT_SERVICE_URL}/products/{product_id}", timeout=HTTP_TIMEOUT_SECONDS
         )
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"product-service unreachable: {e}")
@@ -113,23 +144,19 @@ def create_order(order: OrderCreate):
         raise HTTPException(status_code=502, detail="product-service returned an error")
 
     product = product_resp.json()
-    total_price = product["price"] * order.quantity
+    total_price = product["price"] * quantity
 
-    db = SessionLocal()
-    try:
-        db_order = Order(
-            user_id=order.user_id,
-            product_id=order.product_id,
-            quantity=order.quantity,
-            total_price=total_price,
-            status="CONFIRMED",
-        )
-        db.add(db_order)
-        db.commit()
-        db.refresh(db_order)
-        return db_order
-    finally:
-        db.close()
+    db_order = Order(
+        user_id=user_id,
+        product_id=product_id,
+        quantity=quantity,
+        total_price=total_price,
+        status="CONFIRMED",
+    )
+    db.add(db_order)
+    db.commit()
+    db.refresh(db_order)
+    return db_order
 
 
 @app.get("/orders/{order_id}", response_model=OrderOut)
@@ -149,5 +176,72 @@ def list_orders():
     db = SessionLocal()
     try:
         return db.query(Order).all()
+    finally:
+        db.close()
+
+
+# Cart + Checkout - the new feature added to practice blue-green/canary.
+# The old ("blue") version of order-service has none of these endpoints -
+# hitting them against blue returns a plain 404, a real, visible way to
+# confirm which version you're actually talking to.
+
+@app.post("/cart/{user_id}/items", response_model=CartItemOut, status_code=201)
+def add_to_cart(user_id: int, item: CartItemCreate):
+    db = SessionLocal()
+    try:
+        cart_item = CartItem(
+            user_id=user_id,
+            product_id=item.product_id,
+            quantity=item.quantity,
+        )
+        db.add(cart_item)
+        db.commit()
+        db.refresh(cart_item)
+        return cart_item
+    finally:
+        db.close()
+
+
+@app.get("/cart/{user_id}")
+def view_cart(user_id: int):
+    db = SessionLocal()
+    try:
+        return db.query(CartItem).filter(CartItem.user_id == user_id).all()
+    finally:
+        db.close()
+
+
+@app.delete("/cart/{user_id}/items/{product_id}", status_code=204)
+def remove_from_cart(user_id: int, product_id: int):
+    db = SessionLocal()
+    try:
+        db.query(CartItem).filter(
+            CartItem.user_id == user_id, CartItem.product_id == product_id
+        ).delete()
+        db.commit()
+    finally:
+        db.close()
+
+
+@app.post("/cart/{user_id}/checkout")
+def checkout(user_id: int):
+    db = SessionLocal()
+    try:
+        items = db.query(CartItem).filter(CartItem.user_id == user_id).all()
+        if not items:
+            raise HTTPException(status_code=400, detail="Cart is empty")
+
+        created_orders = []
+        for item in items:
+            order = _place_order(db, user_id, item.product_id, item.quantity)
+            created_orders.append(order)
+
+        db.query(CartItem).filter(CartItem.user_id == user_id).delete()
+        db.commit()
+
+        return {
+            "orders_created": len(created_orders),
+            "order_ids": [o.id for o in created_orders],
+        }
     finally:
         db.close()
