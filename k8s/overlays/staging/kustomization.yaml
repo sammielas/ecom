@@ -3,10 +3,10 @@ resources:
 
 images:
   - name: ghcr.io/sammielas/ecom/user-service
-    newTag: 7890c7a156ed9db8063a553a1b2b3a8df36df4b6
+    newTag: 01b62bf5058a7bf1e6eb1961dcf4baa0e3ba28ac
   - name: ghcr.io/sammielas/ecom/product-service
-    newTag: 7890c7a156ed9db8063a553a1b2b3a8df36df4b6
+    newTag: 01b62bf5058a7bf1e6eb1961dcf4baa0e3ba28ac
   - name: ghcr.io/sammielas/ecom/order-service
-    newTag: 7890c7a156ed9db8063a553a1b2b3a8df36df4b6
+    newTag: 01b62bf5058a7bf1e6eb1961dcf4baa0e3ba28ac
   - name: ghcr.io/sammielas/ecom/frontend
-    newTag: 7890c7a156ed9db8063a553a1b2b3a8df36df4b6
+    newTag: 01b62bf5058a7bf1e6eb1961dcf4baa0e3ba28ac
