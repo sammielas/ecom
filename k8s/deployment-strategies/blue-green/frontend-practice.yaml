@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-practice
+  namespace: deploy-strategies-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: localhost/frontend:cart-feature
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-practice
+  namespace: deploy-strategies-lab
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+EOFcd ~/ecom
+cat > k8s/deployment-strategies/blue-green/frontend-practice.yaml << 'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-practice
+  namespace: deploy-strategies-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: localhost/frontend:cart-feature
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-practice
+  namespace: deploy-strategies-lab
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
